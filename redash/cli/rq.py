@@ -39,11 +39,11 @@ def worker(queues):
     # to spend valuable time re-doing that on every fork.
     configure_mappers()
 
-    if not queues:
-        queues = default_queues
-    else:
-        queues = chain(*[queue.split(",") for queue in queues])
-
+    queues = (
+        chain(*[queue.split(",") for queue in queues])
+        if queues
+        else default_queues
+    )
     with Connection(rq_redis_connection):
         w = Worker(queues, log_job_description=False, job_monitoring_interval=5)
         w.work()
@@ -72,7 +72,7 @@ class WorkerHealthcheck(base.BaseCheck):
         time_since_seen = datetime.datetime.utcnow() - worker.last_heartbeat
         seen_lately = time_since_seen.seconds < 60
 
-        total_jobs_in_watched_queues = sum([len(q.jobs) for q in worker.queues])
+        total_jobs_in_watched_queues = sum(len(q.jobs) for q in worker.queues)
         has_nothing_to_do = total_jobs_in_watched_queues == 0
 
         is_healthy = is_busy or seen_lately or has_nothing_to_do

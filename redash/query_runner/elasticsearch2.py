@@ -40,7 +40,7 @@ class ElasticSearch2(BaseHTTPQueryRunner):
         self.syntax = 'json'
 
     def get_response(self, url, auth=None, http_method='get', **kwargs):
-        url = "{}{}".format(self.configuration["url"], url)
+        url = f'{self.configuration["url"]}{url}'
         headers = kwargs.pop('headers', {})
         headers['Accept'] = 'application/json'
         return super().get_response(url, auth, http_method, headers=headers, **kwargs)
@@ -67,7 +67,7 @@ class ElasticSearch2(BaseHTTPQueryRunner):
         query = json_loads(query)
         index_name = query.pop('index', '')
         result_fields = query.pop('result_fields', None)
-        url = "/{}/_search".format(index_name)
+        url = f"/{index_name}/_search"
         return query, url, result_fields
 
     @classmethod
@@ -103,12 +103,10 @@ class ElasticSearch2(BaseHTTPQueryRunner):
         return self._parse_mappings(response.json())
 
     def get_schema(self, *args, **kwargs):
-        schema = {}
-        for name, columns in self.get_mappings().items():
-            schema[name] = {
-                'name': name,
-                'columns': list(columns.keys())
-            }
+        schema = {
+            name: {'name': name, 'columns': list(columns.keys())}
+            for name, columns in self.get_mappings().items()
+        }
         return list(schema.values())
 
     @classmethod
@@ -153,15 +151,11 @@ class ElasticSearch2(BaseHTTPQueryRunner):
                     continue
 
                 if isinstance(item, (str, int, float)):
-                    collect_value(row, agg_key + '.' + key, item)
+                    collect_value(row, f'{agg_key}.{key}', item)
                 elif isinstance(item, dict):
                     if 'buckets' not in item:
                         for sub_key, sub_item in item.items():
-                            collect_value(
-                                row,
-                                agg_key + '.' + key + '.' + sub_key,
-                                sub_item,
-                            )
+                            collect_value(row, f'{agg_key}.{key}.{sub_key}', sub_item)
                     else:
                         sub_agg_key = key
 
@@ -209,7 +203,7 @@ class ElasticSearch2(BaseHTTPQueryRunner):
         if 'error' in raw_result:
             error = raw_result['error']
             if len(error) > 10240:
-                error = error[:10240] + '... continues'
+                error = f'{error[:10240]}... continues'
 
             raise Exception(error)
         elif 'aggregations' in raw_result:
@@ -279,8 +273,7 @@ class XPackSQLElasticSearch(ElasticSearch2):
 
     @classmethod
     def _parse_results(cls, result_fields, raw_result):
-        error = raw_result.get('error')
-        if error:
+        if error := raw_result.get('error'):
             raise Exception(error)
 
         rv = {
@@ -296,9 +289,10 @@ class XPackSQLElasticSearch(ElasticSearch2):
         query_results_rows = raw_result['rows']
 
         for query_results_row in query_results_rows:
-            result_row = dict()
-            for column, column_value in zip(rv['columns'], query_results_row):
-                result_row[column['name']] = column_value
+            result_row = {
+                column['name']: column_value
+                for column, column_value in zip(rv['columns'], query_results_row)
+            }
             rv['rows'].append(result_row)
 
         return rv

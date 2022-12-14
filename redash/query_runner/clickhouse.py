@@ -63,7 +63,7 @@ class ClickHouse(BaseSQLQueryRunner):
 
     @host.setter
     def host(self, host):
-        self._url = self._url._replace(netloc="{}:{}".format(host, self._url.port))
+        self._url = self._url._replace(netloc=f"{host}:{self._url.port}")
 
     @property
     def port(self):
@@ -71,7 +71,7 @@ class ClickHouse(BaseSQLQueryRunner):
 
     @port.setter
     def port(self, port):
-        self._url = self._url._replace(netloc="{}:{}".format(self._url.hostname, port))
+        self._url = self._url._replace(netloc=f"{self._url.hostname}:{port}")
 
     def _get_tables(self, schema):
         query = "SELECT database, table, name FROM system.columns WHERE database NOT IN ('system')"
@@ -84,7 +84,7 @@ class ClickHouse(BaseSQLQueryRunner):
         results = json_loads(results)
 
         for row in results["rows"]:
-            table_name = "{}.{}".format(row["database"], row["table"])
+            table_name = f'{row["database"]}.{row["table"]}'
 
             if table_name not in schema:
                 schema[table_name] = {"name": table_name, "columns": []}
@@ -125,25 +125,20 @@ class ClickHouse(BaseSQLQueryRunner):
 
             # In certain situations the response body can be empty even if the query was successful, for example
             # when creating temporary tables.
-            if not r.text:
-                return {}
-
-            return r.json()
+            return r.json() if r.text else {}
         except requests.RequestException as e:
             if e.response:
-                details = "({}, Status Code: {})".format(
-                    e.__class__.__name__, e.response.status_code
-                )
+                details = f"({e.__class__.__name__}, Status Code: {e.response.status_code})"
             else:
-                details = "({})".format(e.__class__.__name__)
-            raise Exception("Connection error to: {} {}.".format(url, details))
+                details = f"({e.__class__.__name__})"
+            raise Exception(f"Connection error to: {url} {details}.")
 
     @staticmethod
     def _define_column_type(column):
         c = column.lower()
         f = re.search(r"^nullable\((.*)\)$", c)
         if f is not None:
-            c = f.group(1)
+            c = f[1]
         if c.startswith("int") or c.startswith("uint"):
             return TYPE_INTEGER
         elif c.startswith("float"):
@@ -213,7 +208,7 @@ class ClickHouse(BaseSQLQueryRunner):
             else:
                 # If more than one query was given, a session is needed. Parameter session_check must be false
                 # for the first query
-                session_id = "redash_{}".format(uuid4().hex)
+                session_id = f"redash_{uuid4().hex}"
 
                 results = self._clickhouse_query(
                     queries[0], session_id, session_check=False
