@@ -15,14 +15,12 @@ def json_string_substitute(j, substitutions):
     :param substitutions: dictionary of values to be replaced
     :type substitutions: dict
     """
-    if substitutions:
-        substitution_candidate = j.replace("{", "${")
-        string_template = Template(substitution_candidate)
-        substituted = string_template.safe_substitute(substitutions)
-        out_str = substituted.replace("${", "{")
-        return out_str
-    else:
+    if not substitutions:
         return j
+    substitution_candidate = j.replace("{", "${")
+    string_template = Template(substitution_candidate)
+    substituted = string_template.safe_substitute(substitutions)
+    return substituted.replace("${", "{")
 
 
 class MicrosoftTeamsWebhook(BaseDestination):

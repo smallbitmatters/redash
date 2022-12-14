@@ -65,11 +65,9 @@ def run_query(
 ):
     if data_source.paused:
         if data_source.pause_reason:
-            message = "{} is paused ({}). Please try later.".format(
-                data_source.name, data_source.pause_reason
-            )
+            message = f"{data_source.name} is paused ({data_source.pause_reason}). Please try later."
         else:
-            message = "{} is paused. Please try later.".format(data_source.name)
+            message = f"{data_source.name} is paused. Please try later."
 
         return error_response(message)
 
@@ -84,7 +82,7 @@ def run_query(
 
     if query.missing_params:
         return error_response(
-            "Missing parameter value for: {}".format(", ".join(query.missing_params))
+            f'Missing parameter value for: {", ".join(query.missing_params)}'
         )
 
     if max_age == 0:
@@ -112,20 +110,19 @@ def run_query(
                 query_result, current_user.is_api_user()
             )
         }
-    else:
-        job = enqueue_query(
-            query_text,
-            data_source,
-            current_user.id,
-            current_user.is_api_user(),
-            metadata={
-                "Username": repr(current_user)
-                if current_user.is_api_user()
-                else current_user.email,
-                "query_id": query_id,
-            },
-        )
-        return serialize_job(job)
+    job = enqueue_query(
+        query_text,
+        data_source,
+        current_user.id,
+        current_user.is_api_user(),
+        metadata={
+            "Username": repr(current_user)
+            if current_user.is_api_user()
+            else current_user.email,
+            "query_id": query_id,
+        },
+    )
+    return serialize_job(job)
 
 
 def get_download_filename(query_result, query, filetype):
@@ -134,7 +131,7 @@ def get_download_filename(query_result, query, filetype):
         filename = to_filename(query.name) if query.name != "" else str(query.id)
     else:
         filename = str(query_result.id)
-    return "{}_{}.{}".format(filename, retrieved_at, filetype)
+    return f"{filename}_{retrieved_at}.{filetype}"
 
 
 def content_disposition_filenames(attachment_filename):
@@ -187,24 +184,24 @@ class QueryResultListResource(BaseResource):
         parameterized_query = ParameterizedQuery(query, org=self.current_org)
         should_apply_auto_limit = params.get("apply_auto_limit", False)
 
-        data_source_id = params.get("data_source_id")
-        if data_source_id:
+        if data_source_id := params.get("data_source_id"):
             data_source = models.DataSource.get_by_id_and_org(
                 params.get("data_source_id"), self.current_org
             )
         else:
             return error_messages["select_data_source"]
 
-        if not has_access(data_source, self.current_user, not_view_only):
-            return error_messages["no_permission"]
-
-        return run_query(
-            parameterized_query,
-            parameters,
-            data_source,
-            query_id,
-            should_apply_auto_limit,
-            max_age,
+        return (
+            run_query(
+                parameterized_query,
+                parameters,
+                data_source,
+                query_id,
+                should_apply_auto_limit,
+                max_age,
+            )
+            if has_access(data_source, self.current_user, not_view_only)
+            else error_messages["no_permission"]
         )
 
 
@@ -248,7 +245,7 @@ class QueryResultResource(BaseResource):
         if "Origin" in request.headers:
             origin = request.headers["Origin"]
 
-            if set(["*", origin]) & settings.ACCESS_CONTROL_ALLOW_ORIGIN:
+            if {"*", origin} & settings.ACCESS_CONTROL_ALLOW_ORIGIN:
                 headers["Access-Control-Allow-Origin"] = origin
                 headers["Access-Control-Allow-Credentials"] = str(
                     settings.ACCESS_CONTROL_ALLOW_CREDENTIALS
@@ -310,14 +307,15 @@ class QueryResultResource(BaseResource):
                 should_apply_auto_limit,
                 max_age,
             )
+        if query.parameterized.is_safe:
+            return error_messages["no_permission"]
+
         else:
-            if not query.parameterized.is_safe:
-                if current_user.is_api_user():
-                    return error_messages["unsafe_when_shared"]
-                else:
-                    return error_messages["unsafe_on_view_only"]
-            else:
-                return error_messages["no_permission"]
+            return (
+                error_messages["unsafe_when_shared"]
+                if current_user.is_api_user()
+                else error_messages["unsafe_on_view_only"]
+            )
 
     @require_any_of_permission(("view_query", "execute_query"))
     def get(self, query_id=None, query_result_id=None, filetype="json"):
@@ -370,9 +368,8 @@ class QueryResultResource(BaseResource):
                 query is not None
                 and query_result is not None
                 and self.current_user.is_api_user()
-            ):
-                if query.query_hash != query_result.query_hash:
-                    abort(404, message="No cached result found for this query.")
+            ) and query.query_hash != query_result.query_hash:
+                abort(404, message="No cached result found for this query.")
 
         if query_result:
             require_access(query_result.data_source, self.current_user, view_only)

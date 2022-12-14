@@ -85,9 +85,7 @@ class Prometheus(BaseQueryRunner):
         response.raise_for_status()
         data = response.json()["data"]
 
-        schema = {}
-        for name in data:
-            schema[name] = {"name": name, "columns": []}
+        schema = {name: {"name": name, "columns": []} for name in data}
         return list(schema.values())
 
     def run_query(self, query, user):
@@ -118,9 +116,7 @@ class Prometheus(BaseQueryRunner):
             error = None
             query = query.strip()
             # for backward compatibility
-            query = (
-                "query={}".format(query) if not query.startswith("query=") else query
-            )
+            query = query if query.startswith("query=") else f"query={query}"
 
             payload = parse_qs(query)
             query_type = "query_range" if "step" in payload.keys() else "query"
@@ -134,7 +130,7 @@ class Prometheus(BaseQueryRunner):
 
             convert_query_range(payload)
 
-            api_endpoint = base_url + "/api/v1/{}".format(query_type)
+            api_endpoint = f"{base_url}/api/v1/{query_type}"
 
             response = requests.get(api_endpoint, params=payload)
             response.raise_for_status()
@@ -146,15 +142,14 @@ class Prometheus(BaseQueryRunner):
 
             metric_labels = metrics[0]["metric"].keys()
 
-            for label_name in metric_labels:
-                columns.append(
-                    {
-                        "friendly_name": label_name,
-                        "type": TYPE_STRING,
-                        "name": label_name,
-                    }
-                )
-
+            columns.extend(
+                {
+                    "friendly_name": label_name,
+                    "type": TYPE_STRING,
+                    "name": label_name,
+                }
+                for label_name in metric_labels
+            )
             if query_type == "query_range":
                 rows = get_range_rows(metrics)
             else:

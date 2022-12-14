@@ -34,15 +34,15 @@ class Email(BaseDestination):
         if not recipients:
             logging.warning("No emails given. Skipping send.")
 
-        if alert.custom_body:
-            html = alert.custom_body
-        else:
-            html = """
+        html = (
+            alert.custom_body
+            or """
             Check <a href="{host}/alerts/{alert_id}">alert</a> / check
             <a href="{host}/queries/{query_id}">query</a> </br>.
             """.format(
                 host=host, alert_id=alert.id, query_id=query.id
             )
+        )
         logging.debug("Notifying: %s", recipients)
 
         try:

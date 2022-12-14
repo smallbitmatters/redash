@@ -41,13 +41,10 @@ class Slack(BaseDestination):
         if alert.custom_body:
             fields.append({"title": "Description", "value": alert.custom_body})
         if new_state == "triggered":
-            if alert.custom_subject:
-                text = alert.custom_subject
-            else:
-                text = alert.name + " just triggered"
+            text = alert.custom_subject or f"{alert.name} just triggered"
             color = "#c0392b"
         else:
-            text = alert.name + " went back to normal"
+            text = f"{alert.name} went back to normal"
             color = "#27ae60"
 
         payload = {"attachments": [{"text": text, "color": color, "fields": fields}]}

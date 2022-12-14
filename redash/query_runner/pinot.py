@@ -96,7 +96,7 @@ class Pinot(BaseQueryRunner):
         schema = {}
         for schema_name in self.get_schema_names():
             for table_name in self.get_table_names():
-                schema_table_name = "{}.{}".format(schema_name, table_name)
+                schema_table_name = f"{schema_name}.{table_name}"
                 if table_name not in schema:
                     schema[schema_table_name] = {"name": schema_table_name, "columns": []}
                 table_schema =self.get_pinot_table_schema(table_name)
@@ -114,7 +114,7 @@ class Pinot(BaseQueryRunner):
         return ["default"]
 
     def get_pinot_table_schema(self, pinot_table_name):
-        return self.get_metadata_from_controller("/tables/" + pinot_table_name + "/schema")
+        return self.get_metadata_from_controller(f"/tables/{pinot_table_name}/schema")
 
     def get_table_names(self):
         return self.get_metadata_from_controller("/tables")["tables"]
